@@ -1,0 +1,177 @@
+{
+  "id": "planetary-gear",
+  "name": "Planetary Gear 行星齿轮组",
+  "version": "0.1.2",
+  "description": "渐开线行星齿轮组（外啮合异向、内啮合同向，旋向自动配对）：太阳轮 + N 个行星轮 + 内齿圈，一次生成整套（每个齿轮一个独立实体）。可设模数、压力角、齿数（三个齿数填两个，第三个自动补全）、行星轮数量、齿厚、直齿/斜齿/双斜齿、螺旋角与旋向、内齿圈外径、中心孔、齿侧间隙；结果里带各轮几何尺寸与两两传动比。",
+  "capabilities": ["commands@0.1"],
+  "runtime": {
+    "module": "plugin.wasm",
+    "entries": [
+      {
+        "name": "planetary",
+        "effect": "edit",
+        "input_schema": {
+          "type": "object",
+          "required": ["module", "pressure_angle", "face_width"],
+          "properties": {
+            "gear_form": {
+              "type": "string",
+              "title": "齿轮型式",
+              "description": "直齿 / 斜齿 / 双斜齿（人字齿）；斜齿与双斜齿才用螺旋角与旋向",
+              "default": "spur",
+              "oneOf": [
+                { "const": "spur", "title": "直齿" },
+                { "const": "helical", "title": "斜齿" },
+                { "const": "herringbone", "title": "双斜齿（人字）" }
+              ]
+            },
+            "module": {
+              "type": "number",
+              "title": "模数 m",
+              "description": "分度圆直径 = 模数 × 齿数，三个齿轮共用",
+              "default": 2,
+              "minimum": 0.1,
+              "maximum": 20,
+              "unit": "mm"
+            },
+            "pressure_angle": {
+              "type": "number",
+              "title": "压力角 α",
+              "description": "标准值 20°",
+              "default": 20,
+              "minimum": 10,
+              "maximum": 35,
+              "unit": "°"
+            },
+            "face_width": {
+              "type": "number",
+              "title": "齿轮厚度 b",
+              "description": "三个齿轮的齿宽（沿轴线）",
+              "default": 10,
+              "minimum": 0.2,
+              "maximum": 200,
+              "unit": "mm"
+            },
+            "sun_teeth": {
+              "type": "integer",
+              "title": "太阳轮齿数 Zs",
+              "description": "三个齿数里填两个、第三个留 0 自动补全；填 0 时按 Zr = Zs + 2Zp 反推",
+              "default": 18,
+              "minimum": 0,
+              "maximum": 60
+            },
+            "planet_teeth": {
+              "type": "integer",
+              "title": "行星轮齿数 Zp",
+              "description": "填 0 时按 (Zr − Zs)/2 自动补全",
+              "default": 18,
+              "minimum": 0,
+              "maximum": 40
+            },
+            "ring_teeth": {
+              "type": "integer",
+              "title": "内齿圈齿数 Zr",
+              "description": "必须满足 Zr = Zs + 2Zp；填 0 时自动补全",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 130
+            },
+            "planet_count": {
+              "type": "integer",
+              "title": "行星轮数量 N",
+              "description": "1 到 8；需要 (Zs+Zr)/N 为整数才能均布（默认 18/18/54 配 3 个正好）",
+              "default": 3,
+              "minimum": 1,
+              "maximum": 8
+            },
+            "helix_angle": {
+              "type": "number",
+              "title": "螺旋角 β",
+              "description": "斜齿 / 双斜齿用，5 到 45 度",
+              "default": 20,
+              "minimum": 5,
+              "maximum": 45,
+              "unit": "°"
+            },
+            "hand": {
+              "type": "string",
+              "title": "旋向（太阳轮）",
+              "description": "只填太阳轮旋向；行星轮自动取反向（外啮合异向），内齿圈取与行星轮同向（内啮合同向）。双斜齿是左右各半，此参数忽略",
+              "default": "right",
+              "oneOf": [
+                { "const": "right", "title": "右旋" },
+                { "const": "left", "title": "左旋" }
+              ]
+            },
+            "gap": {
+              "type": "number",
+              "title": "中间退刀槽宽（双斜齿）",
+              "description": "双斜齿两段之间留的空刀槽，0 为直接对接",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 200,
+              "unit": "mm"
+            },
+            "backlash": {
+              "type": "number",
+              "title": "齿侧间隙 j",
+              "description": "分度圆上齿厚的减小量（三个齿轮同时减薄），0 为无侧隙",
+              "default": 0.1,
+              "minimum": 0,
+              "maximum": 5,
+              "unit": "mm"
+            },
+            "bore_diameter": {
+              "type": "number",
+              "title": "中心孔直径",
+              "description": "太阳轮与每个行星轮的中心孔（内齿圈不开孔），0 表示不开孔",
+              "default": 6,
+              "minimum": 0,
+              "maximum": 1000,
+              "unit": "mm"
+            },
+            "ring_outer_diameter": {
+              "type": "number",
+              "title": "内齿圈外径",
+              "description": "0 = 按齿槽底直径 + 10 mm 自动取；至少要比齿槽底直径大 3 mm",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 1000,
+              "unit": "mm"
+            },
+            "addendum": {
+              "type": "number",
+              "title": "齿顶高系数 ha",
+              "description": "齿顶高 = ha × 模数",
+              "default": 1,
+              "minimum": 0.3,
+              "maximum": 2
+            },
+            "dedendum": {
+              "type": "number",
+              "title": "齿根高系数 hf",
+              "description": "齿根高 = hf × 模数，标准 1.25",
+              "default": 1.25,
+              "minimum": 0.3,
+              "maximum": 2.5
+            }
+          }
+        },
+        "slots": [{ "kind": "menu", "name": "行星齿轮" }]
+      }
+    ],
+    "commands": [
+      "solid.cylinder",
+      "solid.extrude",
+      "solid.loft",
+      "sketch.create",
+      "sketch.line",
+      "sketch.finish"
+    ],
+    "limits": {
+      "fuel": 400000000,
+      "memory_mib": 96,
+      "deadline_ms": 30000
+    }
+  }
+}
